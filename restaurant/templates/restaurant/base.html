@@ -1,0 +1,194 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Aura Bistro • Smart Food Ordering & Kitchen Dashboard{% endblock %}</title>
+  <meta name="description" content="Modern Smart Restaurant Ordering Portal & Real-time Kitchen Management Dashboard">
+
+  <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <!-- Custom Restaurant Design System CSS -->
+  <link rel="stylesheet" href="{% static 'restaurant/css/style.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top py-3">
+    <div class="container">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'restaurant:menu' %}">
+        <div class="brand-icon-box">
+          <i class="bi bi-fire"></i>
+        </div>
+        <div>
+          <span class="text-white fw-bold">AURA</span><span class="text-warning">BISTRO</span>
+          <div style="font-size: 0.65rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; line-height: 1;">Smart Dining & KDS</div>
+        </div>
+      </a>
+
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarMain">
+        <ul class="navbar-nav mx-auto mb-2 mb-lg-0 gap-1">
+          <li class="nav-nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'menu' %}active{% endif %}" href="{% url 'restaurant:menu' %}">
+              <i class="bi bi-book-half me-1"></i> Food Menu
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if 'track' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'restaurant:track_order_search' %}">
+              <i class="bi bi-crosshair me-1"></i> Track Order
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.resolver_match.url_name == 'kitchen_dashboard' %}active{% endif %}" href="{% url 'restaurant:kitchen_dashboard' %}">
+              <i class="bi bi-display me-1 text-warning"></i> Kitchen Dashboard
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link text-muted" href="/admin/" target="_blank">
+              <i class="bi bi-shield-lock me-1"></i> Admin
+            </a>
+          </li>
+        </ul>
+
+        <!-- Right Side: Cart Action -->
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-outline-amber d-flex align-items-center gap-2 position-relative px-3 py-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCart" aria-controls="offcanvasCart">
+            <i class="bi bi-bag-check-fill fs-5"></i>
+            <span class="d-none d-sm-inline">My Order</span>
+            <span class="badge bg-danger rounded-pill cart-count-badge" style="{% if cart_summary.item_count == 0 %}display:none;{% endif %}">
+              {{ cart_summary.item_count|default:0 }}
+            </span>
+          </button>
+          <a href="{% url 'restaurant:cart' %}" class="btn btn-amber px-3 py-2 d-none d-md-inline-flex align-items-center gap-2">
+            <span>Checkout</span>
+            <span class="cart-total-display fw-bold">
+              ${{ cart_summary.total_amount|default:"0.00" }}
+            </span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Flash Messages Banner -->
+  <div class="container mt-3">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show d-flex align-items-center gap-2 border-0 shadow-sm" role="alert" style="background: rgba(30, 41, 59, 0.95); color: #fff; border-left: 4px solid var(--primary-brand) !important;">
+          <i class="bi bi-info-circle-fill text-warning fs-5"></i>
+          <div>{{ message|safe }}</div>
+          <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <!-- Offcanvas Quick Cart Drawer -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasCart" aria-labelledby="offcanvasCartLabel">
+    <div class="offcanvas-header border-bottom border-secondary border-opacity-25">
+      <h5 class="offcanvas-title d-flex align-items-center gap-2" id="offcanvasCartLabel">
+        <i class="bi bi-basket2-fill text-warning"></i>
+        <span>Current Order Summary</span>
+      </h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-direction-column justify-content-between p-3">
+      <div>
+        <div id="drawer-cart-items">
+          <!-- Dynamically populated via cart.js -->
+        </div>
+
+        <div id="drawer-cart-empty" class="text-center py-5" style="display: none;">
+          <div class="mb-3 text-muted">
+            <i class="bi bi-cart-x fs-1 opacity-50"></i>
+          </div>
+          <h6 class="text-white">Your tray is empty</h6>
+          <p class="text-muted small">Explore our delicious menu items and click "Add to Order".</p>
+          <a href="{% url 'restaurant:menu' %}" class="btn btn-sm btn-outline-amber" data-bs-dismiss="offcanvas">Browse Menu</a>
+        </div>
+      </div>
+
+      <div id="drawer-cart-footer" class="border-top border-secondary border-opacity-25 pt-3 mt-3">
+        <div class="d-flex justify-content-between text-muted small mb-1">
+          <span>Subtotal</span>
+          <span id="drawer-cart-subtotal">$0.00</span>
+        </div>
+        <div class="d-flex justify-content-between text-muted small mb-2">
+          <span>Sales Tax (5%)</span>
+          <span id="drawer-cart-tax">$0.00</span>
+        </div>
+        <div class="d-flex justify-content-between fw-bold text-white fs-5 mb-3">
+          <span>Grand Total</span>
+          <span id="drawer-cart-total" class="text-warning">$0.00</span>
+        </div>
+        <div class="d-grid gap-2">
+          <a href="{% url 'restaurant:cart' %}" class="btn btn-amber py-2 fw-bold">Proceed to Checkout</a>
+          <button class="btn btn-outline-danger btn-sm" onclick="clearEntireCart()">Clear Order</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Area -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-notification-area"></div>
+
+  <!-- Main Content Block -->
+  <main class="flex-grow-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Modern Restaurant Footer -->
+  <footer class="py-4 mt-5">
+    <div class="container">
+      <div class="row align-items-center gy-3">
+        <div class="col-md-6 text-center text-md-start">
+          <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-1">
+            <div class="brand-icon-box" style="width: 28px; height: 28px; font-size: 0.9rem;">
+              <i class="bi bi-fire"></i>
+            </div>
+            <span class="fw-bold text-white">Aura Bistro</span>
+            <span class="badge bg-secondary opacity-75 small">Django 6 + SQLite</span>
+          </div>
+          <p class="text-muted small mb-0">
+            Smart Restaurant Food Ordering & Kitchen Dashboard • Capstone Final Project
+          </p>
+        </div>
+        <div class="col-md-6 text-center text-md-end">
+          <div class="d-flex align-items-center justify-content-center justify-content-md-end gap-3 text-muted small">
+            <a href="{% url 'restaurant:menu' %}" class="text-muted text-decoration-none">Food Menu</a>
+            <span>•</span>
+            <a href="{% url 'restaurant:kitchen_dashboard' %}" class="text-muted text-decoration-none">Kitchen KDS</a>
+            <span>•</span>
+            <a href="{% url 'restaurant:track_order_search' %}" class="text-muted text-decoration-none">Order Tracker</a>
+            <span>•</span>
+            <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25">
+              <i class="bi bi-cloud-check me-1"></i>Render Ready
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Bootstrap 5 Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Application Cart Script -->
+  <script src="{% static 'restaurant/js/cart.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

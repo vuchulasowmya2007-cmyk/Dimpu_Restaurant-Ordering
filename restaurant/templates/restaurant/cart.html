@@ -1,0 +1,206 @@
+{% extends 'restaurant/base.html' %}
+{% load static %}
+
+{% block title %}Tray & Checkout • Aura Bistro{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+          <h2 class="display-6 fw-bold text-white mb-1">
+            <i class="bi bi-basket2-fill text-warning me-2"></i>Review Order & Checkout
+          </h2>
+          <p class="text-muted mb-0">Confirm your selected dishes, table details, and kitchen notes.</p>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="{% url 'restaurant:menu' %}" class="btn btn-outline-secondary text-white">
+            <i class="bi bi-arrow-left me-1"></i> Add More Dishes
+          </a>
+          {% if cart_summary.items %}
+            <button class="btn btn-outline-danger" onclick="clearEntireCart()">
+              <i class="bi bi-trash3 me-1"></i> Clear Tray
+            </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if cart_summary.items %}
+    <div class="row g-4">
+      <!-- Order Items List Column -->
+      <div class="col-lg-7">
+        <div class="card bg-card border-0 shadow-sm rounded-4 overflow-hidden mb-4" style="background: var(--bg-card); border: 1px solid var(--border-subtle) !important;">
+          <div class="card-header bg-surface py-3 border-bottom border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-white fw-bold">Selected Items ({{ cart_summary.item_count }})</h5>
+            <span class="badge bg-warning text-dark fw-bold">5% Sales Tax Included in Calculation</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-dark table-hover align-middle mb-0" style="background: transparent;">
+                <thead class="text-muted small text-uppercase">
+                  <tr>
+                    <th scope="col" class="ps-4">Dish</th>
+                    <th scope="col">Price</th>
+                    <th scope="col" class="text-center">Quantity</th>
+                    <th scope="col" class="text-end">Subtotal</th>
+                    <th scope="col" class="text-center pe-4">Remove</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in cart_summary.items %}
+                    <tr>
+                      <td class="ps-4 py-3">
+                        <div class="d-flex align-items-center gap-3">
+                          <img src="{{ item.menu_item.image_url|default:'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=120' }}" alt="{{ item.menu_item.name }}" class="rounded-3" style="width: 56px; height: 56px; object-fit: cover;">
+                          <div>
+                            <div class="fw-bold text-white">{{ item.menu_item.name }}</div>
+                            <div class="small">
+                              {% if item.menu_item.is_vegetarian %}
+                                <span class="text-success"><i class="bi bi-leaf-fill me-1"></i>Vegetarian</span>
+                              {% else %}
+                                <span class="text-danger"><i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>Non-Veg</span>
+                              {% endif %}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="text-muted">${{ item.price }}</td>
+                      <td class="text-center">
+                        <div class="qty-controller mx-auto">
+                          <button type="button" onclick="updateCartItemQuantity({{ item.menu_item.id }}, {{ item.quantity|add:'-1' }})" title="Decrease">
+                            <i class="bi bi-dash"></i>
+                          </button>
+                          <input type="text" value="{{ item.quantity }}" readonly>
+                          <button type="button" onclick="updateCartItemQuantity({{ item.menu_item.id }}, {{ item.quantity|add:'1' }})" title="Increase">
+                            <i class="bi bi-plus"></i>
+                          </button>
+                        </div>
+                      </td>
+                      <td class="text-end fw-bold text-warning">${{ item.subtotal }}</td>
+                      <td class="text-center pe-4">
+                        <button type="button" class="btn btn-sm text-danger opacity-75 hover-opacity-100 p-0 border-0" onclick="updateCartItemQuantity({{ item.menu_item.id }}, 0)" title="Delete Item">
+                          <i class="bi bi-trash3-fill fs-5"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kitchen Notice Card -->
+        <div class="p-3 rounded-4 d-flex align-items-center gap-3" style="background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border-subtle);">
+          <i class="bi bi-shield-check text-success fs-3"></i>
+          <div class="small text-muted">
+            <span class="text-white fw-bold">Live Kitchen Dispatch:</span> Once submitted, your order immediately prints and alerts the line chefs on the KDS dashboard.
+          </div>
+        </div>
+      </div>
+
+      <!-- Checkout Form & Summary Column -->
+      <div class="col-lg-5">
+        <div class="card bg-card border-0 shadow-lg rounded-4 p-4 sticky-top" style="top: 100px; background: var(--bg-card); border: 1px solid var(--border-subtle) !important;">
+          <h4 class="fw-bold text-white mb-3 d-flex align-items-center gap-2">
+            <i class="bi bi-credit-card-2-front text-warning"></i> Complete Checkout
+          </h4>
+
+          <form action="{% url 'restaurant:checkout' %}" method="POST" id="checkout-form">
+            {% csrf_token %}
+            <input type="hidden" name="cart_json" id="id_cart_json" value="">
+
+            <div class="mb-3">
+              <label for="table_number" class="form-label text-white fw-semibold small">
+                <i class="bi bi-geo-alt-fill text-warning me-1"></i> Dine-in Table / Pickup *
+              </label>
+              {{ form.table_number }}
+              {% if form.table_number.errors %}
+                <div class="text-danger small mt-1">{{ form.table_number.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <div class="row g-2 mb-3">
+              <div class="col-md-6">
+                <label for="id_customer_name" class="form-label text-white fw-semibold small">
+                  <i class="bi bi-person-fill text-warning me-1"></i> Full Name *
+                </label>
+                {{ form.customer_name }}
+                {% if form.customer_name.errors %}
+                  <div class="text-danger small mt-1">{{ form.customer_name.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div class="col-md-6">
+                <label for="id_customer_phone" class="form-label text-white fw-semibold small">
+                  <i class="bi bi-telephone-fill text-warning me-1"></i> Phone Number *
+                </label>
+                {{ form.customer_phone }}
+                {% if form.customer_phone.errors %}
+                  <div class="text-danger small mt-1">{{ form.customer_phone.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="id_customer_email" class="form-label text-white fw-semibold small">
+                <i class="bi bi-envelope-fill text-warning me-1"></i> Email Receipt (Optional)
+              </label>
+              {{ form.customer_email }}
+            </div>
+
+            <div class="mb-4">
+              <label for="id_special_instructions" class="form-label text-white fw-semibold small">
+                <i class="bi bi-chat-left-dots-fill text-warning me-1"></i> Special Preparation Notes
+              </label>
+              {{ form.special_instructions }}
+            </div>
+
+            <!-- Financial Calculation Breakdown -->
+            <div class="p-3 rounded-3 mb-4" style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-subtle);">
+              <div class="d-flex justify-content-between text-muted small mb-2">
+                <span>Items Subtotal</span>
+                <span class="text-white">${{ cart_summary.subtotal }}</span>
+              </div>
+              <div class="d-flex justify-content-between text-muted small mb-2">
+                <span>Estimated Sales Tax (5%)</span>
+                <span class="text-white">${{ cart_summary.tax_amount }}</span>
+              </div>
+              <hr class="border-secondary opacity-25 my-2">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <span class="fw-bold text-white fs-5">Grand Total</span>
+                  <div class="text-muted" style="font-size: 0.75rem;">Verified server-side calculation</div>
+                </div>
+                <span class="fs-4 fw-extrabold text-warning">${{ cart_summary.total_amount }}</span>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-amber w-100 py-3 rounded-3 fw-bold fs-5 d-flex align-items-center justify-content-center gap-2">
+              <i class="bi bi-check2-circle fs-4"></i>
+              <span>Place Order (${{ cart_summary.total_amount }})</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="text-center py-5 my-5 card bg-card border-0 p-5 rounded-4" style="background: var(--bg-card); border: 1px solid var(--border-subtle) !important;">
+      <div class="mb-3">
+        <i class="bi bi-cart-x text-warning display-1 opacity-50"></i>
+      </div>
+      <h3 class="fw-bold text-white mb-2">Your Order Tray is Currently Empty</h3>
+      <p class="text-muted mb-4" style="max-width: 480px; margin: 0 auto;">
+        You haven't selected any items yet. Browse our chef-curated appetizers, hearty mains, artisan desserts, and refreshing beverages!
+      </p>
+      <div>
+        <a href="{% url 'restaurant:menu' %}" class="btn btn-amber px-4 py-2 fw-bold">
+          <i class="bi bi-book-half me-1"></i> Explore Restaurant Menu
+        </a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
